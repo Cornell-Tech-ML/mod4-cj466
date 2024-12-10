@@ -34,9 +34,8 @@ class Conv1d(minitorch.Module):
         self.bias = RParam(1, out_channels, 1)
 
     def forward(self, input):
-        # TODO: Implement for Task 4.5.
-        raise NotImplementedError("Need to implement for Task 4.5")
-
+        # Implement for Task 4.5.
+        return minitorch.conv1d(input, self.weights.value) + self.bias.value
 
 class CNNSentimentKim(minitorch.Module):
     """
@@ -61,15 +60,47 @@ class CNNSentimentKim(minitorch.Module):
     ):
         super().__init__()
         self.feature_map_size = feature_map_size
-        # TODO: Implement for Task 4.5.
-        raise NotImplementedError("Need to implement for Task 4.5")
+        # Implement for Task 4.5.
+        self.dropout = dropout
+        self.conv1 = Conv1d(embedding_size, feature_map_size, filter_sizes[0])
+        self.conv2 = Conv1d(embedding_size, feature_map_size, filter_sizes[1])
+        self.conv3 = Conv1d(embedding_size, feature_map_size, filter_sizes[2])
+        self.linear = Linear(feature_map_size, 1)
 
     def forward(self, embeddings):
         """
         embeddings tensor: [batch x sentence length x embedding dim]
         """
-        # TODO: Implement for Task 4.5.
-        raise NotImplementedError("Need to implement for Task 4.5")
+        # Implement for Task 4.5.
+        # Transpose the embeddings to prepare them for 1D convolution.
+        transposed_embeddings = embeddings.permute(0, 2, 1)
+
+        # Apply the first 1D convolution, followed by a ReLU activation,
+        #and perform max-over-time pooling along the sentence_length dimension.
+        cv1 = minitorch.max(self.conv1(transposed_embeddings).relu(), dim=2)
+
+        # Apply the second 1D convolution with a larger kernel size, followed by ReLU,
+        # and perform max-over-time pooling along the sentence_length dimension.
+        cv2 = minitorch.max(self.conv2(transposed_embeddings).relu(), dim=2)
+
+        # Apply the third 1D convolution with the largest kernel size, followed by ReLU,
+        # and perform max-over-time pooling along the sentence_length dimension.
+        cv3 = minitorch.max(self.conv3(transposed_embeddings).relu(), dim=2)
+
+        # Sum the feature maps from all three convolutions to combine features learnedby different kernel sizes.
+        cv_sum = cv1 + cv2 + cv3
+
+        # Transform the combined features through the final linear layer.
+        linear_out = self.linear(cv_sum.view(cv_sum.shape[0], self.feature_map_size))
+
+        # Apply dropout with a specified rate to prevent overfitting during training.
+        # Dropout is skipped during evaluation (`not self.training` ensures this).
+        res = minitorch.dropout(linear_out, self.dropout, not self.training)
+
+        # Apply a sigmoid function to get probabilities for the binary classification task.
+        # Reshape the result to match the batch size.
+        return res.sigmoid().view(embeddings.shape[0])
+
 
 
 # Evaluation helper methods

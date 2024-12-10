@@ -41,9 +41,8 @@ class Conv2d(minitorch.Module):
         self.bias = RParam(out_channels, 1, 1)
 
     def forward(self, input):
-        # TODO: Implement for Task 4.5.
-        raise NotImplementedError("Need to implement for Task 4.5")
-
+        # Implement for Task 4.5.
+        return minitorch.conv2d(input, self.weights.value) + self.bias.value
 
 class Network(minitorch.Module):
     """
@@ -67,12 +66,37 @@ class Network(minitorch.Module):
         self.mid = None
         self.out = None
 
-        # TODO: Implement for Task 4.5.
-        raise NotImplementedError("Need to implement for Task 4.5")
+        # Implement for Task 4.5.
+        self.conv1 = Conv2d(1, 4, 3, 3)
+        self.conv2 = Conv2d(4, 8, 3, 3)
+        self.linear1 = Linear(392, 64)
+        self.linear2 = Linear(64, 10)
 
     def forward(self, x):
-        # TODO: Implement for Task 4.5.
-        raise NotImplementedError("Need to implement for Task 4.5")
+        # Apply the first convolutional layer followed by ReLU activation.
+        self.mid = self.conv1.forward(x).relu()
+
+        # Apply the second convolutional layer followed by ReLU activation.
+        self.out = self.conv2.forward(self.mid).relu()
+
+        # Apply 2D max pooling with a 4x4 kernel.
+        pooled_features = minitorch.maxpool2d(self.out, kernel=(4, 4))
+
+        # Flatten the pooled features into a 2D tensor.
+        flattened_output = pooled_features.view(pooled_features.shape[0], 392)
+
+        # Apply the first linear layer followed by ReLU activation.
+        linear1_result = self.linear1.forward(flattened_output).relu()
+
+        # Apply dropout to the result with a 25% dropout rate.
+        linear1_dropped = minitorch.dropout(linear1_result, rate=0.25, ignore=not self.training)
+
+        # Apply the final linear layer to produce logits for each class.
+        logits = self.linear2.forward(linear1_dropped)
+
+        # Apply log softmax over the class dimension to produce log probabilities.
+        return minitorch.logsoftmax(logits, dim=1)
+
 
 
 def make_mnist(start, stop):
